@@ -186,8 +186,8 @@ const RES={5:'5s',60:'1m',300:'5m',3600:'1h'};
 const DEF={demo:{base:'https://cdn-ind.testnet.deltaex.org',ws:'wss://socket-ind.testnet.deltaex.org'},live:{base:'https://api.india.delta.exchange',ws:'wss://socket.india.delta.exchange'}};
 
 /* ---------- HARD-CODED LIVE KEYS (keep this file private, never upload it) ---------- */
-const LIVE_KEY='PASTE_NEW_KEY_HERE';
-const LIVE_SECRET='PASTE_NEW_SECRET_HERE';
+const LIVE_KEY='O2PVc8MV9QoEFGWDfkrznkdYo0BZkF';
+const LIVE_SECRET='N3SRNlCXexCVf4DxiCjFCoqXzSokRyMpHE1SfzTSEfHnDrFvf1brI4bltaqe';
 
 let env='live', pair='BTCUSD', LASTERR='';
 let ws,data={},products={},positions={},openX={},lastLev={},lastWs=0,subbed=null,pan=0,dragging=false,dx0=0,pan0=0,moved=false,indicators=[];
@@ -201,6 +201,7 @@ async function api(method,path,o={}){
  if(o.auth||o.body)h['Content-Type']='application/json';
  if(o.auth){
   if(!c.key||!c.secret)throw new Error('API key and secret are missing in the file.');
+  if(/PASTE_/.test(c.key+c.secret))throw new Error('placeholder key not replaced');
   if(!crypto.subtle)throw new Error('Signing needs https:// or localhost.');
   const ts=String(Math.floor(Date.now()/1000)),enc=new TextEncoder();
   const k=await crypto.subtle.importKey('raw',enc.encode(c.secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
@@ -422,7 +423,7 @@ async function poll(){
   positions=np;renderPositions();LASTERR='';
   const asset=(products[pair]||{}).settle,rows=b.result||[],row=rows.find(x=>x.asset_symbol===asset)||rows.find(x=>+x.balance>0)||rows[0];
   if(row){var bv=+(row.available_balance??row.balance);AVAIL=bv;var be=$('bal');be.dataset.usd=`$${bv.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;be.textContent=be.dataset.usd;be.style.color='var(--tx)'}
- }catch(e){LASTERR=String(e.message||e);var m=LASTERR,t='KEYS?';if(m.indexOf('ip_not_whitelisted')>-1)t='IP?';else if(m.indexOf('expired_signature')>-1)t='CLOCK?';else if(m.indexOf('invalid_api_key')>-1)t='BAD KEY';else if(m.toLowerCase().indexOf('signature')>-1)t='BAD SECRET';else if(m.indexOf('Signing needs')>-1)t='HTTPS?';else if(m.indexOf('missing in the file')>-1)t='NO KEY';else if(m.indexOf('Failed to fetch')>-1)t='NETWORK?';$('bal').textContent=t;$('bal').style.color='#E8083E';console.warn(m)}
+ }catch(e){LASTERR=String(e.message||e);var m=LASTERR,t='KEYS?';if(m.indexOf('placeholder key')>-1)t='PASTE KEY';else if(m.indexOf('ip_not_whitelisted')>-1)t='IP?';else if(m.indexOf('expired_signature')>-1)t='CLOCK?';else if(m.indexOf('invalid_api_key')>-1)t='BAD KEY';else if(m.toLowerCase().indexOf('signature')>-1)t='BAD SECRET';else if(m.indexOf('Signing needs')>-1)t='HTTPS?';else if(m.indexOf('missing in the file')>-1)t='NO KEY';else if(m.indexOf('Failed to fetch')>-1)t='NETWORK?';$('bal').textContent=t;$('bal').style.color='#E8083E';console.warn(m)}
 }
 function renderPositions(){
  const l=Object.values(positions),box=$('plist');
@@ -466,7 +467,7 @@ async function closePos(id){
 $('up').onclick=()=>trade(true);$('dn').onclick=()=>trade(false);
 
 /* ---------- balance tap = refresh ---------- */
-$('bal').onclick=function(){alert(LASTERR||'No error - balance OK');poll()};
+$('bal').onclick=function(){alert((LASTERR||'No error - balance OK')+'\n\nBuild v3\nKey in this app: '+LIVE_KEY.slice(0,4)+'...'+LIVE_KEY.slice(-4));poll()};
 
 /* ---------- per-pane zoom (1% steps) + adjustable split ---------- */
 var AZ=1,SPL=50,splDrag=false;
