@@ -319,7 +319,7 @@ function draw(){
  const clampY=y=>Math.max(vm,Math.min(CH-vm,y));
  if(live)Object.values(positions).filter(p=>p.sym===pair).forEach(p=>{
   const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
-  const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.mkFee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12')});
+  const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12')});
  if(live){
   const last=all[all.length-1],y=Y(last.close),col=last.close>=last.open?'#02864A':'#E8083E';
   ctx.strokeStyle=col;ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);
@@ -418,7 +418,7 @@ async function poll(){
    const size=+r.size;if(!size)return;const sym=r.product_symbol,pr=products[sym]||{cv:.001,taker:.0005,maker:.0002},entry=+r.entry_price;
       const a=data[sym],last=a&&a.length?a[a.length-1].close:entry,up=size>0,mk=(pr.maker!=null?pr.maker:pr.taker);
       const pl=(last-entry)*size*pr.cv,mkFee=Math.abs(size)*pr.cv*entry*mk,fee=mkFee+Math.abs(size)*pr.cv*entry*pr.taker,margin=+r.margin||0;
-      np[r.product_id]={id:r.product_id,sym,size,up,entry,pl,margin,fee,mkFee,lev:lastLev[sym]||'',be:entry*(1+(up?1:-1)*mk),liq:r.liquidation_price,time:r.created_at};
+      np[r.product_id]={id:r.product_id,sym,size,up,entry,pl,margin,fee,mkFee,lev:lastLev[sym]||'',be:entry*(1+(up?1:-1)*(mk+pr.taker)),liq:r.liquidation_price,time:r.created_at};
   });
   positions=np;renderPositions();LASTERR='';
   const asset=(products[pair]||{}).settle,rows=b.result||[],row=rows.find(x=>x.asset_symbol===asset)||rows.find(x=>+x.balance>0)||rows[0];
