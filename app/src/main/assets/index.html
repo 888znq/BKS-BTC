@@ -425,7 +425,39 @@ async function poll(){
   if(row){var bv=+(row.available_balance??row.balance);AVAIL=bv;var be=$('bal');be.dataset.usd=`$${bv.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;be.textContent=be.dataset.usd;be.style.color='var(--tx)'}
  }catch(e){LASTERR=String(e.message||e);var m=LASTERR,t='KEYS?';if(m.indexOf('placeholder key')>-1)t='PASTE KEY';else if(m.indexOf('ip_not_whitelisted')>-1)t='IP?';else if(m.indexOf('expired_signature')>-1)t='CLOCK?';else if(m.indexOf('invalid_api_key')>-1)t='BAD KEY';else if(m.toLowerCase().indexOf('signature')>-1)t='BAD SECRET';else if(m.indexOf('Signing needs')>-1)t='HTTPS?';else if(m.indexOf('missing in the file')>-1)t='NO KEY';else if(m.indexOf('Failed to fetch')>-1)t='NETWORK?';$('bal').textContent=t;$('bal').style.color='#E8083E';console.warn(m)}
 }
+var PREV={},CLOSED=[];
+try{CLOSED=JSON.parse(localStorage.getItem('d_closed')||'[]')||[];if(!Array.isArray(CLOSED))CLOSED=[]}catch(e){CLOSED=[]}
+function trackClosed(){
+ var ch=false;
+ Object.keys(PREV).forEach(function(id){
+  if(positions[id])return;
+  var p=PREV[id],pr=products[p.sym]||{cv:.001},a=data[p.sym],ex=a&&a.length?a[a.length-1].close:p.entry;
+  CLOSED.unshift({sym:p.sym,up:p.up,size:Math.abs(p.size),lev:p.lev,entry:p.entry,exit:ex,pl:(ex-p.entry)*p.size*pr.cv,fee:p.fee,t:Date.now()});
+  ch=true;
+ });
+ PREV=Object.assign({},positions);
+ if(CLOSED.length>50)CLOSED.length=50;
+ if(ch){try{localStorage.setItem('d_closed',JSON.stringify(CLOSED))}catch(e){}}
+}
+function closedHtml(){
+ return CLOSED.map(c=>{const col=c.pl>=0?'#02864A':'#E8083E',nc=c.pl-c.fee>=0?'#02864A':'#E8083E',d=dp(c.entry),id='c'+c.t+c.sym;
+  return `<div class="pos cl${openX[id]?' x':''}" data-id="${id}"><div class="t"><span>${c.sym} ${c.up?'BUY':'SELL'} ${c.lev?'x'+c.lev:''} CLOSED</span><span style="color:${col}">${both(c.pl)}</span></div>
+  <div class="b"><span>${new Date(c.t).toLocaleString()}</span><span>${c.size} contracts</span></div>
+  <div class="d"><div><span>Entry price</span><span>${c.entry.toFixed(d)}</span></div><div><span>Exit price</span><span>${c.exit.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(c.fee)}</span></div><div><span>Net after fees</span><span style="color:${nc}">${both(c.pl-c.fee)}</span></div></div></div>`}).join('');
+}
 function renderPositions(){
+ trackClosed();
+ const box=$('plist'),sl=box.scrollLeft;
+ renderOpen();
+ const cl=closedHtml();
+ if(cl){
+  const em=box.querySelector('.empty');if(em)em.remove();
+  box.insertAdjacentHTML('beforeend',cl);
+  box.querySelectorAll('.pos.cl').forEach(el=>el.onclick=()=>{openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
+ }
+ box.scrollLeft=sl;
+}
+function renderOpen(){
  const l=Object.values(positions),box=$('plist');
  if(!l.length){box.innerHTML='<div class="empty">NO POSITIONS</div>';return}
  box.innerHTML=l.map(p=>{const c=p.pl>=0?'#02864A':'#E8083E',d=dp(p.entry);
