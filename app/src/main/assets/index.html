@@ -186,10 +186,10 @@ const RES={5:'5s',60:'1m',300:'5m',3600:'1h'};
 const DEF={demo:{base:'https://cdn-ind.testnet.deltaex.org',ws:'wss://socket-ind.testnet.deltaex.org'},live:{base:'https://api.india.delta.exchange',ws:'wss://socket.india.delta.exchange'}};
 
 /* ---------- HARD-CODED LIVE KEYS (keep this file private, never upload it) ---------- */
-const LIVE_KEY='O2PVc8MV9QoEFGWDfkrznkdYo0BZkF';
-const LIVE_SECRET='N3SRNlCXexCVf4DxiCjFCoqXzSokRyMpHE1SfzTSEfHnDrFvf1brI4bltaqe';
+const LIVE_KEY='PASTE_NEW_KEY_HERE';
+const LIVE_SECRET='PASTE_NEW_SECRET_HERE';
 
-let env='live', pair='BTCUSD';
+let env='live', pair='BTCUSD', LASTERR='';
 let ws,data={},products={},positions={},openX={},lastLev={},lastWs=0,subbed=null,pan=0,dragging=false,dx0=0,pan0=0,moved=false,indicators=[];
 var CW=6,TW=10,CZ=1;
 var LEV_OVR={BTCUSD:200,ETHUSD:200,SOLUSD:100};
@@ -419,10 +419,10 @@ async function poll(){
       const pl=(last-entry)*size*pr.cv,mkFee=Math.abs(size)*pr.cv*entry*mk,fee=mkFee+Math.abs(size)*pr.cv*entry*pr.taker,margin=+r.margin||0;
       np[r.product_id]={id:r.product_id,sym,size,up,entry,pl,margin,fee,mkFee,lev:lastLev[sym]||'',be:entry*(1+(up?1:-1)*mk),liq:r.liquidation_price,time:r.created_at};
   });
-  positions=np;renderPositions();
+  positions=np;renderPositions();LASTERR='';
   const asset=(products[pair]||{}).settle,rows=b.result||[],row=rows.find(x=>x.asset_symbol===asset)||rows.find(x=>+x.balance>0)||rows[0];
   if(row){var bv=+(row.available_balance??row.balance);AVAIL=bv;var be=$('bal');be.dataset.usd=`$${bv.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;be.textContent=be.dataset.usd;be.style.color='var(--tx)'}
- }catch(e){$('bal').textContent='KEYS?';$('bal').style.color='#E8083E';console.warn(e.message)}
+ }catch(e){LASTERR=String(e.message||e);var m=LASTERR,t='KEYS?';if(m.indexOf('ip_not_whitelisted')>-1)t='IP?';else if(m.indexOf('expired_signature')>-1)t='CLOCK?';else if(m.indexOf('invalid_api_key')>-1)t='BAD KEY';else if(m.toLowerCase().indexOf('signature')>-1)t='BAD SECRET';else if(m.indexOf('Signing needs')>-1)t='HTTPS?';else if(m.indexOf('missing in the file')>-1)t='NO KEY';else if(m.indexOf('Failed to fetch')>-1)t='NETWORK?';$('bal').textContent=t;$('bal').style.color='#E8083E';console.warn(m)}
 }
 function renderPositions(){
  const l=Object.values(positions),box=$('plist');
@@ -466,7 +466,7 @@ async function closePos(id){
 $('up').onclick=()=>trade(true);$('dn').onclick=()=>trade(false);
 
 /* ---------- balance tap = refresh ---------- */
-$('bal').onclick=poll;
+$('bal').onclick=function(){alert(LASTERR||'No error - balance OK');poll()};
 
 /* ---------- per-pane zoom (1% steps) + adjustable split ---------- */
 var AZ=1,SPL=50,splDrag=false;
