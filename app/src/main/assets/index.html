@@ -37,7 +37,9 @@ button,select,.pos{touch-action:manipulation}
 .pos .t{font-weight:800}.pos .b{color:#8892b0;font-size:10px}
 .pos .d{display:none;margin-top:4px;padding-top:4px;border-top:1px dashed #333;font-size:10px;gap:3px;flex-direction:column}
 .pos.x .d{display:flex}.pos .d span:first-child{color:#8892b0}
-.pos button{margin-top:4px;width:100%;background:transparent;border:1px solid #ffcc00;color:#ffcc00;border-radius:4px;font-size:11px;font-weight:800;padding:8px 4px;cursor:pointer;min-height:32px}
+.pos button{background:transparent;border:1px solid #ffcc00;color:#ffcc00;border-radius:4px;font-size:11px;font-weight:800;padding:8px 4px;cursor:pointer;min-height:32px;flex:1 1 0;min-width:0}
+.pos .btns{display:flex;gap:6px;margin-top:4px}
+.pos button[data-tp]{color:#00e5ff}
 .bar{display:flex;flex-direction:column;flex:none;gap:0;padding:0;border-top:1px solid #fff}
 .seg{display:flex;align-items:stretch;border:1px solid #fff;border-radius:6px;overflow:hidden;height:48px;width:100%}
 .seg>*{flex:1 1 0;min-width:0;border:0;border-right:1px solid #fff;border-radius:0;background:transparent;color:#fff;font:700 14px inherit;text-align:center;outline:0;margin:0;padding:0 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -177,6 +179,11 @@ body{padding-left:env(safe-area-inset-left,0);padding-right:env(safe-area-inset-
 <div class="modal" id="codeM"><div class="box"><h3>CUSTOM INDICATOR EDITOR</h3>
  <textarea id="code" spellcheck="false"></textarea>
  <div class="row"><button id="codeX">Close</button><button id="codeSave">Save</button><button class="ok" id="codeApply">Apply</button></div></div></div>
+
+<div class="modal" id="tpM"><div class="box"><h3 id="tpTitle">TAKE PROFIT</h3>
+ <label>Target price ($) — position auto-closes when reached</label>
+ <input type="number" id="tpInput" step="any" inputmode="decimal" placeholder="e.g. 68000">
+ <div class="row"><button id="tpClear">Clear</button><button id="tpX">Close</button><button class="ok" id="tpSave">Save</button></div></div></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -319,7 +326,9 @@ function draw(){
  const clampY=y=>Math.max(vm,Math.min(CH-vm,y));
  if(live)Object.values(positions).filter(p=>p.sym===pair).forEach(p=>{
   const ey=clampY(Y(p.entry));dash(ey,'#e07b00',`x${p.lev||''} ENTRY`,'bottom');box(ey,p.entry.toFixed(d),'#e07b00');
-  const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12')});
+  const by=clampY(Y(p.be));dash(by,'#8c5a12',`Fee covered ${both(p.fee)}`,'top');box(by,p.be.toFixed(d),'#8c5a12');
+  if(TP[p.id]!=null){var ty=clampY(Y(+TP[p.id]));dash(ty,'#00e5ff',`TP ${(+TP[p.id]).toFixed(d)}`,p.up?'top':'bottom')}
+ });
  if(live){
   const last=all[all.length-1],y=Y(last.close),col=last.close>=last.open?'#02864A':'#E8083E';
   ctx.strokeStyle=col;ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W-YW,y);ctx.stroke();ctx.setLineDash([]);
@@ -431,6 +440,7 @@ function trackClosed(){
  var ch=false;
  Object.keys(PREV).forEach(function(id){
   if(positions[id])return;
+  if(TP[id]!=null){delete TP[id];saveTp()}
   var p=PREV[id],pr=products[p.sym]||{cv:.001},a=data[p.sym],ex=a&&a.length?a[a.length-1].close:p.entry;
   CLOSED.unshift({sym:p.sym,up:p.up,size:Math.abs(p.size),lev:p.lev,entry:p.entry,exit:ex,pl:(ex-p.entry)*p.size*pr.cv,fee:p.fee,t:Date.now()});
   ch=true;
@@ -463,11 +473,45 @@ function renderOpen(){
  box.innerHTML=l.map(p=>{const c=p.pl>=0?'#02864A':'#E8083E',d=dp(p.entry);
   return `<div class="pos${openX[p.id]?' x':''}" data-id="${p.id}"><div class="t"><span>${p.sym} ${p.up?'BUY':'SELL'} ${p.lev?'x'+p.lev:''}</span><span style="color:${c}">${both(p.pl)}</span></div>
   <div class="b"><span>${both(p.margin)}</span><span>${Math.abs(p.size)} contracts</span></div>
-  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div></div>
-  <button data-close="${p.id}">CLOSE</button></div>`}).join('');
- box.querySelectorAll('.pos').forEach(el=>el.onclick=e=>{if(e.target.dataset.close)return;openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
+  <div class="d"><div><span>Entry price</span><span>${p.entry.toFixed(d)}</span></div><div><span>Breakeven (fees)</span><span style="color:#8c5a12">${p.be.toFixed(d)}</span></div><div><span>Fees (round trip)</span><span style="color:#8c5a12">${both(p.fee)}</span></div><div><span>Liquidation</span><span>${p.liq?(+p.liq).toFixed(d):'--'}</span></div><div><span>Take profit</span><span style="color:#00e5ff">${TP[p.id]!=null?(+TP[p.id]).toFixed(d):'--'}</span></div></div>
+  <div class="btns"><button data-tp="${p.id}">${TP[p.id]!=null?'TP '+(+TP[p.id]).toFixed(d):'SET TP'}</button><button data-close="${p.id}">CLOSE</button></div></div>`}).join('');
+ box.querySelectorAll('.pos').forEach(el=>el.onclick=e=>{if(e.target.dataset.close||e.target.dataset.tp)return;openX[el.dataset.id]=!openX[el.dataset.id];el.classList.toggle('x')});
  box.querySelectorAll('[data-close]').forEach(b=>b.onclick=e=>{e.stopPropagation();closePos(+b.dataset.close)});
+ box.querySelectorAll('[data-tp]').forEach(b=>b.onclick=e=>{e.stopPropagation();openTp(+b.dataset.tp)});
 }
+
+/* ---------- take-profit ---------- */
+var TP={},tpPending={},tpTarget=null;
+try{TP=JSON.parse(localStorage.getItem('d_tp')||'{}')||{}}catch(e){TP={}}
+function saveTp(){try{localStorage.setItem('d_tp',JSON.stringify(TP))}catch(e){}}
+function openTp(id){
+ var p=positions[id];if(!p)return;
+ tpTarget=id;
+ $('tpTitle').textContent='TP · '+p.sym+' '+(p.up?'BUY':'SELL');
+ $('tpInput').value=TP[id]!=null?TP[id]:'';
+ $('tpM').style.display='flex';
+ setTimeout(function(){$('tpInput').focus()},0);
+}
+$('tpX').onclick=function(){$('tpM').style.display='none'};
+$('tpM').onclick=function(e){if(e.target.id==='tpM')$('tpM').style.display='none'};
+$('tpClear').onclick=function(){if(tpTarget!=null){delete TP[tpTarget];saveTp()}$('tpM').style.display='none';renderPositions()};
+$('tpSave').onclick=function(){
+ var v=+$('tpInput').value;
+ if(!v||v<=0)return alert('Enter a valid target price.');
+ if(tpTarget!=null){TP[tpTarget]=v;saveTp()}
+ $('tpM').style.display='none';renderPositions();
+};
+function checkTp(){
+ Object.values(positions).forEach(function(p){
+  var tp=TP[p.id];if(tp==null||tpPending[p.id])return;
+  var a=data[p.sym],last=a&&a.length?a[a.length-1].close:null;if(last==null)return;
+  var hit=p.up?last>=tp:last<=tp;
+  if(!hit)return;
+  tpPending[p.id]=true;
+  closePos(p.id).finally(function(){delete tpPending[p.id]});
+ });
+}
+setInterval(checkTp,1000);
 
 /* ---------- trading ---------- */
 async function trade(up){
